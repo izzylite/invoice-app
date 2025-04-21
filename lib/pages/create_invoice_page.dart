@@ -31,20 +31,20 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   List<String> _columns = [
     'Lot No',
     'Quality',
+    'Brand',
     'Parcel',
     'Kg',
     'Rate',
-    'Brand',
     'Amount',
   ];
 
   Map<String, FieldType> _columnTypes = {
     'Lot No': FieldType.integer,
     'Quality': FieldType.text,
+    'Brand': FieldType.text,
     'Parcel': FieldType.decimal,
     'Kg': FieldType.decimal,
     'Rate': FieldType.decimal,
-    'Brand': FieldType.text,
     'Amount': FieldType.decimal,
   };
 
@@ -57,7 +57,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
 
   Formula _amountFormula = Formula(
       components: List.from([
-    FormulaComponent(columnName: 'Kg', operation: OperationType.add),
+    FormulaComponent(columnName: 'Kg', operation: OperationType.multiply),
     FormulaComponent(columnName: 'Rate', operation: OperationType.add),
   ]));
 

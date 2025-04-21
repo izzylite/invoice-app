@@ -250,13 +250,12 @@ class _FormulaDialogState extends State<FormulaDialog> {
         ElevatedButton(
           onPressed: () {
             Formula? formula;
-            // Always use formula if components exist
+
             if (_components.isNotEmpty) {
               formula = Formula(components: List.from(_components));
             }
 
             Navigator.pop(context, {
-              'useFormula': true, // Always true
               'formula': formula,
             });
           },

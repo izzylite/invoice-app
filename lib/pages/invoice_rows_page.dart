@@ -32,6 +32,7 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
   late final Map<String, FieldType> _columnTypes = {};
   final _formKey = GlobalKey<FormState>();
 
+  late String amountLabel;
   late final Currency _selectedCurrency = widget.selectedCurrency;
   late String currencySymbol;
 
@@ -46,8 +47,7 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
     // Initialize formula from widget
     _formula = widget.amountFormula;
     _useFormula = true; // Always use formula by default
-
-    widget.columns.remove("Amount");
+    amountLabel = widget.columns.remove("Amount");
     widget.columns.add("Amount");
     _items = List.from(widget.existingItems);
 
@@ -205,8 +205,17 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                         if (column == 'Amount') {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
+                            onChange: (value) {
+                              setState(() {});
+                            },
                             child: TextFormField(
                               controller: _controllers[column],
+                              value: amountLabel,
+                              onChange = (value) {
+                                setState(() {
+                                  amountLabel = value;
+                                });
+                              },
                               decoration: InputDecoration(
                                 labelText: column,
                                 border: const OutlineInputBorder(),
