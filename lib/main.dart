@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/splash_screen_page.dart';
 import 'pages/dashboard_page.dart' as dashboard;
 
 void main() {
@@ -39,7 +40,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const dashboard.DashboardPage(title: 'ElakkaiTrack'),
+      home: const SplashScreenPage(),
     );
   }
 }
