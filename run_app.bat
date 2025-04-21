@@ -1,3 +1,3 @@
 @echo off
-cd %~dp0
-flutter run -d 9c2d165a
+cd C:\Users\izzy\Documents\Projects\invoice_app
+flutter run -d chrome

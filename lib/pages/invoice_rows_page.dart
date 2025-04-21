@@ -32,7 +32,6 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
   late final Map<String, FieldType> _columnTypes = {};
   final _formKey = GlobalKey<FormState>();
 
-  late String amountLabel;
   late final Currency _selectedCurrency = widget.selectedCurrency;
   late String currencySymbol;
 
@@ -47,7 +46,6 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
     // Initialize formula from widget
     _formula = widget.amountFormula;
     _useFormula = true; // Always use formula by default
-    amountLabel = widget.columns.remove("Amount");
     widget.columns.add("Amount");
     _items = List.from(widget.existingItems);
 
@@ -57,6 +55,33 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
     }
 
     currencySymbol = getCurrencySymbol(_selectedCurrency);
+  }
+
+  double calculateAmount() {
+    final Map<String, dynamic> values = {};
+
+    for (var column in widget.columns) {
+      final fieldType = _columnTypes[column] ?? FieldType.text;
+      final textValue = _controllers[column]!.text;
+
+      switch (fieldType) {
+        case FieldType.integer:
+          values[column] = int.tryParse(textValue) ?? 0;
+          break;
+        case FieldType.decimal:
+          values[column] = double.tryParse(textValue) ?? 0.0;
+          break;
+        case FieldType.text:
+          values[column] = textValue;
+          break;
+      }
+    }
+    double amount = values['Amount'] ?? 0.0;
+    if (_useFormula && _formula != null) {
+      amount = _formula!.calculate(values);
+      values['Amount'] = amount;
+    }
+    return amount;
   }
 
   void _addRow() {
@@ -205,17 +230,9 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                         if (column == 'Amount') {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            onChange: (value) {
-                              setState(() {});
-                            },
                             child: TextFormField(
                               controller: _controllers[column],
-                              value: amountLabel,
-                              onChange = (value) {
-                                setState(() {
-                                  amountLabel = value;
-                                });
-                              },
+                              initialValue: calculateAmount().toString(),
                               decoration: InputDecoration(
                                 labelText: column,
                                 border: const OutlineInputBorder(),
