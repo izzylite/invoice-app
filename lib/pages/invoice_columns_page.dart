@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/column_definition.dart';
+import '../models/formula_calculation.dart';
+import '../widgets/formula_dialog.dart';
 
 class InvoiceColumnsPage extends StatefulWidget {
   final List<String> existingColumns;
   final Map<String, FieldType> existingColumnTypes;
+  final Formula? amountFormula;
 
-  const InvoiceColumnsPage({
-    super.key,
-    this.existingColumns = const [],
-    this.existingColumnTypes = const {},
-  });
+  const InvoiceColumnsPage(
+      {super.key,
+      this.existingColumns = const [],
+      this.existingColumnTypes = const {},
+      this.amountFormula});
 
   @override
   State<InvoiceColumnsPage> createState() => _InvoiceColumnsPageState();
@@ -21,12 +24,28 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
   final TextEditingController _columnController = TextEditingController();
   FieldType _selectedFieldType = FieldType.text;
 
+  // Formula properties
+  Formula? _amountFormula;
+
   @override
   void initState() {
     super.initState();
+    // Initialize formula properties
+    _amountFormula = widget.amountFormula;
+
+    // Ensure Amount is the last column
     widget.existingColumns.remove("Amount");
     widget.existingColumns.add("Amount");
+
+    // Initialize columns
     _columns = widget.existingColumns.map((name) {
+      if (name == 'Amount') {
+        return ColumnDefinition(
+          name: name,
+          fieldType: widget.existingColumnTypes[name] ?? FieldType.decimal,
+          formula: _amountFormula,
+        );
+      }
       return ColumnDefinition(
         name: name,
         fieldType: widget.existingColumnTypes[name] ?? FieldType.text,
@@ -104,6 +123,37 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
     return name == 'Amount';
   }
 
+  void _showFormulaDialog(BuildContext context) {
+    List<String> numericColumns = _columns
+        .where((col) =>
+            col.name != 'Amount' &&
+            (col.fieldType == FieldType.decimal ||
+                col.fieldType == FieldType.integer))
+        .map((col) => col.name)
+        .toList();
+
+    showFormulaDialog(
+      context,
+      initialUseFormula: true,
+      initialFormula: _amountFormula,
+      numericColumns: numericColumns,
+    ).then((result) {
+      if (result != null) {
+        setState(() {
+          _amountFormula = result['formula'];
+
+          // Update the Amount column definition
+          int amountIndex = _columns.indexWhere((col) => col.name == 'Amount');
+          if (amountIndex != -1) {
+            _columns[amountIndex] = _columns[amountIndex].copyWith(
+              formula: _amountFormula,
+            );
+          }
+        });
+      }
+    });
+  }
+
   Icon _getFieldTypeIcon(FieldType type) {
     switch (type) {
       case FieldType.text:
@@ -158,9 +208,17 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
                 columnTypes[col.name] = col.fieldType;
               }
 
+              // Find the Amount column to get its formula
+              ColumnDefinition? amountColumn = _columns.firstWhere(
+                (col) => col.name == 'Amount',
+                orElse: () => ColumnDefinition(
+                    name: 'Amount', fieldType: FieldType.decimal),
+              );
+
               Navigator.pop(context, {
                 'columns': columnNames,
                 'columnTypes': columnTypes,
+                'amountFormula': amountColumn.formula,
               });
             },
           ),
@@ -337,12 +395,6 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
             margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.0)),
-            color: _isDefaultColumn(column.name)
-                ? Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
-                    .withAlpha(128)
-                : null,
             child: ListTile(
               leading: _getFieldTypeIcon(column.fieldType),
               title: Text(
@@ -353,12 +405,20 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_isDefaultColumn(column.name))
-                    const Tooltip(
-                      message: 'Default column (cannot be removed)',
-                      child: Icon(Icons.lock, color: Colors.grey),
-                    )
-                  else
+                  if (_isDefaultColumn(column.name)) ...[
+                    // Formula button for Amount column
+                    IconButton(
+                      icon: column.formula != null
+                          ? const Tooltip(
+                              message: 'Formula is set',
+                              child: Icon(Icons.calculate_outlined,
+                                  color: Colors.blue),
+                            )
+                          : const Icon(Icons.calculate_outlined),
+                      tooltip: 'Set formula for Amount calculation',
+                      onPressed: () => _showFormulaDialog(context),
+                    ),
+                  ] else
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       tooltip: 'Remove column',

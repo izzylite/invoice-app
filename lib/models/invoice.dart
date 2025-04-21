@@ -1,4 +1,5 @@
 import 'invoice_item.dart';
+import 'formula_calculation.dart';
 import '../pages/invoice_rows_page.dart' show Currency;
 
 class Invoice {
@@ -11,6 +12,7 @@ class Invoice {
   double freightCost;
   Currency currency;
   List<String> paymentMethods;
+  Formula? formula;
 
   Invoice({
     required this.id,
@@ -22,6 +24,7 @@ class Invoice {
     this.freightCost = 0.0,
     this.currency = Currency.rupee,
     this.paymentMethods = const [],
+    this.formula,
   });
 
   double get totalAmount {
@@ -65,6 +68,7 @@ class Invoice {
       'freightCost': freightCost,
       'currency': currency.toString().split('.').last,
       'paymentMethods': paymentMethods,
+      'formula': formula?.toJson(), // Serialize formula if it exists
     };
   }
 
@@ -80,6 +84,12 @@ class Invoice {
   }
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
+    // Parse formula if it exists
+    Formula? formula;
+    if (json['formula'] != null) {
+      formula = Formula.fromJson(json['formula']);
+    }
+
     return Invoice(
       id: json['id'],
       title: json['title'],
@@ -92,6 +102,7 @@ class Invoice {
       freightCost: json['freightCost'],
       currency: _parseCurrency(json['currency']),
       paymentMethods: List<String>.from(json['paymentMethods']),
+      formula: formula,
     );
   }
 }

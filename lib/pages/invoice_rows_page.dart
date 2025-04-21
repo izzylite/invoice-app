@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:invoice_app/utils/currency.dart';
 import '../models/invoice_item.dart';
 import '../models/column_definition.dart';
+import '../models/formula_calculation.dart';
 
 enum Currency { naira, dollar, rupee }
 
@@ -10,6 +11,7 @@ class InvoiceRowsPage extends StatefulWidget {
   final Map<String, FieldType> columnTypes;
   final List<InvoiceItem> existingItems;
   final Currency selectedCurrency;
+  final Formula? amountFormula;
 
   const InvoiceRowsPage({
     super.key,
@@ -17,6 +19,7 @@ class InvoiceRowsPage extends StatefulWidget {
     required this.columnTypes,
     this.existingItems = const [],
     this.selectedCurrency = Currency.naira,
+    this.amountFormula,
   });
 
   @override
@@ -32,9 +35,17 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
   late final Currency _selectedCurrency = widget.selectedCurrency;
   late String currencySymbol;
 
+  // Formula calculation
+  Formula? _formula;
+  bool _useFormula = true; // Always true by default
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize formula from widget
+    _formula = widget.amountFormula;
+    _useFormula = true; // Always use formula by default
 
     widget.columns.remove("Amount");
     widget.columns.add("Amount");
@@ -69,9 +80,14 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
         }
       }
 
+      double amount = values['Amount'] ?? 0.0;
+      if (_useFormula && _formula != null) {
+        amount = _formula!.calculate(values);
+        values['Amount'] = amount;
+      }
+
       setState(() {
-        final item =
-            InvoiceItem(values: values, amount: values['Amount'] ?? 0.0);
+        final item = InvoiceItem(values: values, amount: amount);
         _items.add(item);
       });
 
@@ -85,6 +101,49 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
     setState(() {
       _items.removeAt(index);
     });
+  }
+
+  bool _hasPendingData() {
+    bool hasData = false;
+
+    for (var column in widget.columns) {
+      final text = _controllers[column]?.text ?? '';
+      if (text.isNotEmpty) {
+        hasData = true;
+      }
+    }
+
+    return hasData;
+  }
+
+  bool _addPendingRowIfNeeded() {
+    if (_hasPendingData()) {
+      if (_formKey.currentState == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Internal error: Form state is null'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+
+      final isValid = _formKey.currentState!.validate();
+      if (isValid) {
+        _addRow();
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Please fill in all required fields correctly before saving'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+    return true;
   }
 
   @override
@@ -106,9 +165,12 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: () {
-              Navigator.pop(context, {
-                'items': _items,
-              });
+              final canProceed = _addPendingRowIfNeeded();
+              if (canProceed) {
+                Navigator.pop(context, {
+                  'items': _items,
+                });
+              }
             },
           ),
         ],
@@ -150,11 +212,27 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                                 border: const OutlineInputBorder(),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 16),
-                                hintText: 'Enter ${column.toLowerCase()}',
+                                hintText: _useFormula && _formula != null
+                                    ? 'Calculated: ${_formula!.getFormulaString()}'
+                                    : 'Enter ${column.toLowerCase()}',
                                 prefixText: currencySymbol,
+                                suffixIcon: _useFormula && _formula != null
+                                    ? Tooltip(
+                                        message:
+                                            'Using formula: ${_formula!.getFormulaString()}',
+                                        child: const Icon(Icons.functions,
+                                            color: Colors.blue),
+                                      )
+                                    : null,
                               ),
                               keyboardType: TextInputType.number,
+                              enabled:
+                                  !_useFormula, // Disable when using formula
                               validator: (value) {
+                                if (_useFormula) {
+                                  return null; // Skip validation when using formula
+                                }
+
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter $column';
                                 }

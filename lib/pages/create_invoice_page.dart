@@ -3,6 +3,7 @@ import 'package:invoice_app/utils/currency.dart';
 import '../models/invoice.dart';
 import '../models/invoice_item.dart';
 import '../models/column_definition.dart';
+import '../models/formula_calculation.dart';
 import '../widgets/invoice_table.dart';
 import '../services/invoice_service.dart';
 import 'invoice_columns_page.dart';
@@ -40,7 +41,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   Map<String, FieldType> _columnTypes = {
     'Lot No': FieldType.integer,
     'Quality': FieldType.text,
-    'Parcel': FieldType.text,
+    'Parcel': FieldType.decimal,
     'Kg': FieldType.decimal,
     'Rate': FieldType.decimal,
     'Brand': FieldType.text,
@@ -53,6 +54,12 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   double _freightCost = 0.0;
   final TextEditingController _freightCostController =
       TextEditingController(text: '0.0');
+
+  Formula _amountFormula = Formula(
+      components: List.from([
+    FormulaComponent(columnName: 'Kg', operation: OperationType.add),
+    FormulaComponent(columnName: 'Rate', operation: OperationType.add),
+  ]));
 
   @override
   void initState() {
@@ -73,6 +80,9 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     _paymentMethods.clear();
     _paymentMethods.addAll(invoice.paymentMethods);
     _freightCost = invoice.freightCost;
+    if (invoice.formula != null) {
+      _amountFormula = invoice.formula!;
+    }
   }
 
   @override
@@ -115,6 +125,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       freightCost: _freightCost,
       currency: _selectedCurrency,
       paymentMethods: _paymentMethods,
+      formula: _amountFormula, // Include formula in the invoice
     );
   }
 
@@ -478,9 +489,9 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => InvoiceColumnsPage(
-                              existingColumns: _columns,
-                              existingColumnTypes: _columnTypes,
-                            ),
+                                existingColumns: _columns,
+                                existingColumnTypes: _columnTypes,
+                                amountFormula: _amountFormula),
                           ),
                         );
 
@@ -488,6 +499,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                           setState(() {
                             _columns = result['columns'];
                             _columnTypes = result['columnTypes'];
+                            _amountFormula = result['amountFormula'];
                           });
                         }
                       },
@@ -544,6 +556,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                     columnTypes: _columnTypes,
                                     existingItems: _items,
                                     selectedCurrency: _selectedCurrency,
+                                    amountFormula: _amountFormula,
                                   ),
                                 ),
                               );

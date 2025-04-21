@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'formula_calculation.dart';
 
 enum FieldType { text, integer, decimal }
 
 class ColumnDefinition {
   final String name;
   final FieldType fieldType;
+  final Formula? formula;
 
   ColumnDefinition({
     required this.name,
     required this.fieldType,
+    this.formula,
   });
 
   // Helper method to get keyboard type based on field type
@@ -71,5 +74,19 @@ class ColumnDefinition {
       case FieldType.text:
         return value;
     }
+  }
+
+  // Create a copy with updated properties
+  ColumnDefinition copyWith({
+    String? name,
+    FieldType? fieldType,
+    bool? useFormula,
+    Formula? formula,
+  }) {
+    return ColumnDefinition(
+      name: name ?? this.name,
+      fieldType: fieldType ?? this.fieldType,
+      formula: formula ?? this.formula,
+    );
   }
 }
