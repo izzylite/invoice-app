@@ -40,7 +40,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
       const Duration(seconds: 3),
       () => Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => const DashboardPage(title: 'Invoice Manager'),
+          builder: (context) => const DashboardPage(title: 'ElakkaiTrack'),
         ),
       ),
     );

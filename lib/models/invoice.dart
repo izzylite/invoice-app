@@ -29,7 +29,7 @@ class Invoice {
     this.currency = Currency.rupee,
     this.paymentMethods = const [],
     this.formula,
-  }) : this.invoiceDate = invoiceDate ?? DateTime.now();
+  }) : invoiceDate = invoiceDate ?? DateTime.now();
 
   double get totalAmount {
     return _calculateTotalAmount(this);

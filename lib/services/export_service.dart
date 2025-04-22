@@ -25,7 +25,11 @@ class ExportService {
         csvData.add(['Buildy Number:', invoice.buildyNumber]);
       }
 
-      String formattedDate = _formatDate(invoice.createdAt);
+      if (invoice.numberOfBags > 0) {
+        csvData.add(['Number of Bags:', invoice.numberOfBags]);
+      }
+
+      String formattedDate = _formatDate(invoice.invoiceDate);
       csvData.add(['Date:', formattedDate]);
 
       // Add empty row before table

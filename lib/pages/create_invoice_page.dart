@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:invoice_app/services/column_options_service.dart';
 import 'package:invoice_app/utils/currency.dart';
 import '../models/invoice.dart';
 import '../models/invoice_item.dart';
@@ -53,6 +54,9 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     'Amount': FieldType.decimal,
   };
 
+  // Store column options for dropdown fields
+  Map<String, List<String>> _columnOptions = {};
+
   List<InvoiceItem> _items = [];
 
   Currency _selectedCurrency = Currency.rupee;
@@ -69,10 +73,26 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   @override
   void initState() {
     super.initState();
-
+    getSavedColumeOptions(_columns).then((value) {
+      setState(() {
+        _columnOptions = value;
+      });
+    });
     if (widget.invoice != null) {
       _loadInvoiceData(widget.invoice!);
     }
+  }
+
+  Future<Map<String, List<String>>> getSavedColumeOptions(
+      List<String> columes) async {
+    Map<String, List<String>> columnOptions = {};
+    // First, try to load saved options for this column
+    for (var name in columes) {
+      List<String> options =
+          await ColumnOptionsService.getOptionsForColumn(name);
+      columnOptions[name] = options;
+    }
+    return columnOptions;
   }
 
   void _loadInvoiceData(Invoice invoice) {
@@ -568,6 +588,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                             builder: (context) => InvoiceColumnsPage(
                                 existingColumns: _columns,
                                 existingColumnTypes: _columnTypes,
+                                columnOptions: _columnOptions,
                                 amountFormula: _amountFormula),
                           ),
                         );
@@ -577,6 +598,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                             _columns = result['columns'];
                             _columnTypes = result['columnTypes'];
                             _amountFormula = result['amountFormula'];
+                            _columnOptions = result['columnOptions'] ?? {};
                           });
                         }
                       },
@@ -631,6 +653,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                   builder: (context) => InvoiceRowsPage(
                                     columns: _columns,
                                     columnTypes: _columnTypes,
+                                    columnOptions: _columnOptions,
                                     existingItems: _items,
                                     selectedCurrency: _selectedCurrency,
                                     amountFormula: _amountFormula,

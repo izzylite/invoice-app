@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/column_definition.dart';
 import '../models/formula_calculation.dart';
+import '../services/column_options_service.dart';
 import '../widgets/formula_dialog.dart';
+import '../widgets/options_dialog.dart';
 
 class InvoiceColumnsPage extends StatefulWidget {
   final List<String> existingColumns;
+  final Map<String, List<String>> columnOptions;
   final Map<String, FieldType> existingColumnTypes;
   final Formula? amountFormula;
 
@@ -13,6 +16,7 @@ class InvoiceColumnsPage extends StatefulWidget {
       {super.key,
       this.existingColumns = const [],
       this.existingColumnTypes = const {},
+      this.columnOptions = const {},
       this.amountFormula});
 
   @override
@@ -36,18 +40,18 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
     // Ensure Amount is the last column
     widget.existingColumns.remove("Amount");
     widget.existingColumns.add("Amount");
-
     // Initialize columns
     _columns = widget.existingColumns.map((name) {
       if (name == 'Amount') {
         return ColumnDefinition(
-          name: name,
-          fieldType: widget.existingColumnTypes[name] ?? FieldType.decimal,
-          formula: _amountFormula,
-        );
+            name: name,
+            fieldType: widget.existingColumnTypes[name] ?? FieldType.decimal,
+            formula: _amountFormula,
+            options: widget.columnOptions[name] ?? []);
       }
       return ColumnDefinition(
         name: name,
+        options: widget.columnOptions[name] ?? [],
         fieldType: widget.existingColumnTypes[name] ?? FieldType.text,
       );
     }).toList();
@@ -59,7 +63,7 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
     super.dispose();
   }
 
-  void _addColumn() {
+  Future<void> _addColumn() async {
     final columnName = _columnController.text.trim();
     if (columnName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,9 +80,16 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
       return;
     }
 
+    // Check if we have saved options for this column
+    List<String> savedOptions =
+        await ColumnOptionsService.getOptionsForColumn(columnName);
+
     setState(() {
-      final newColumn =
-          ColumnDefinition(name: columnName, fieldType: _selectedFieldType);
+      final newColumn = ColumnDefinition(
+        name: columnName,
+        fieldType: _selectedFieldType,
+        options: savedOptions, // Use saved options if available
+      );
 
       if (columnName.toLowerCase() == 'amount') {
         int existingAmountIndex =
@@ -101,6 +112,15 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
           _columns.insert(amountIndex, newColumn);
         } else {
           _columns.add(newColumn);
+        }
+
+        // Show a message if options were loaded
+        if (savedOptions.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Loaded ${savedOptions.length} saved options for $columnName')),
+          );
         }
       }
 
@@ -186,6 +206,23 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
     }
   }
 
+  // Show dialog to create or edit options for a column
+  void _showOptionsDialog(BuildContext context, int columnIndex) {
+    final column = _columns[columnIndex];
+
+    showOptionsDialog(
+      context,
+      column: column,
+      initialOptions: column.options,
+    ).then((options) {
+      if (options != null) {
+        setState(() {
+          _columns[columnIndex] = column.copyWith(options: options);
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalItems = _columns.length + 1; // +1 for the header
@@ -215,10 +252,19 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
                     name: 'Amount', fieldType: FieldType.decimal),
               );
 
+              // Create a map of column options
+              final Map<String, List<String>> columnOptions = {};
+              for (var col in _columns) {
+                if (col.hasOptions) {
+                  columnOptions[col.name] = col.options;
+                }
+              }
+
               Navigator.pop(context, {
                 'columns': columnNames,
                 'columnTypes': columnTypes,
                 'amountFormula': amountColumn.formula,
+                'columnOptions': columnOptions,
               });
             },
           ),
@@ -354,7 +400,7 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: _addColumn,
+                        onPressed: () => _addColumn(),
                         icon: const Icon(Icons.add_circle_outline,
                             color: Colors.white),
                         label: const Text('Add Column'),
@@ -405,6 +451,19 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Options button for all columns except Amount
+                  if (!_isDefaultColumn(column.name))
+                    IconButton(
+                      icon: column.hasOptions
+                          ? const Tooltip(
+                              message: 'Options available',
+                              child: Icon(Icons.list_alt, color: Colors.blue),
+                            )
+                          : const Icon(Icons.list_alt),
+                      tooltip: 'Create options for this column',
+                      onPressed: () => _showOptionsDialog(context, columnIndex),
+                    ),
+
                   if (_isDefaultColumn(column.name)) ...[
                     // Formula button for Amount column
                     IconButton(

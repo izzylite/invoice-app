@@ -7,11 +7,13 @@ class ColumnDefinition {
   final String name;
   final FieldType fieldType;
   final Formula? formula;
+  final List<String> options;
 
   ColumnDefinition({
     required this.name,
     required this.fieldType,
     this.formula,
+    this.options = const [],
   });
 
   // Helper method to get keyboard type based on field type
@@ -82,11 +84,16 @@ class ColumnDefinition {
     FieldType? fieldType,
     bool? useFormula,
     Formula? formula,
+    List<String>? options,
   }) {
     return ColumnDefinition(
       name: name ?? this.name,
       fieldType: fieldType ?? this.fieldType,
       formula: formula ?? this.formula,
+      options: options ?? this.options,
     );
   }
+
+  // Check if column has options
+  bool get hasOptions => options.isNotEmpty;
 }

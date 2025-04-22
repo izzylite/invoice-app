@@ -9,6 +9,7 @@ enum Currency { naira, dollar, rupee }
 class InvoiceRowsPage extends StatefulWidget {
   final List<String> columns;
   final Map<String, FieldType> columnTypes;
+  final Map<String, List<String>> columnOptions;
   final List<InvoiceItem> existingItems;
   final Currency selectedCurrency;
   final Formula? amountFormula;
@@ -17,6 +18,7 @@ class InvoiceRowsPage extends StatefulWidget {
     super.key,
     required this.columns,
     required this.columnTypes,
+    this.columnOptions = const {},
     this.existingItems = const [],
     this.selectedCurrency = Currency.naira,
     this.amountFormula,
@@ -64,6 +66,7 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
       final fieldType = _columnTypes[column] ?? FieldType.text;
       final textValue = _controllers[column]!.text;
 
+      // Process value based on field type
       switch (fieldType) {
         case FieldType.integer:
           values[column] = int.tryParse(textValue) ?? 0;
@@ -92,16 +95,36 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
         final fieldType = _columnTypes[column] ?? FieldType.text;
         final textValue = _controllers[column]!.text;
 
-        switch (fieldType) {
-          case FieldType.integer:
-            values[column] = int.tryParse(textValue) ?? 0;
-            break;
-          case FieldType.decimal:
-            values[column] = double.tryParse(textValue) ?? 0.0;
-            break;
-          case FieldType.text:
-            values[column] = textValue;
-            break;
+        // Check if this column has options
+        final hasOptions = widget.columnOptions.containsKey(column) &&
+            widget.columnOptions[column]!.isNotEmpty;
+
+        // If it has options, we already validated the input when selecting from dropdown
+        if (hasOptions) {
+          switch (fieldType) {
+            case FieldType.integer:
+              values[column] = int.tryParse(textValue) ?? 0;
+              break;
+            case FieldType.decimal:
+              values[column] = double.tryParse(textValue) ?? 0.0;
+              break;
+            case FieldType.text:
+              values[column] = textValue;
+              break;
+          }
+        } else {
+          // Regular text input handling
+          switch (fieldType) {
+            case FieldType.integer:
+              values[column] = int.tryParse(textValue) ?? 0;
+              break;
+            case FieldType.decimal:
+              values[column] = double.tryParse(textValue) ?? 0.0;
+              break;
+            case FieldType.text:
+              values[column] = textValue;
+              break;
+          }
         }
       }
 
@@ -309,45 +332,98 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                             ),
                           );
                         } else {
+                          // Check if this column has options for dropdown
+                          final hasOptions =
+                              widget.columnOptions.containsKey(column) &&
+                                  widget.columnOptions[column]!.isNotEmpty;
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            child: TextFormField(
-                              controller: _controllers[column],
-                              decoration: InputDecoration(
-                                labelText: column,
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 16),
-                                hintText: 'Enter ${column.toLowerCase()}',
-                              ),
-                              keyboardType: fieldType == FieldType.text
-                                  ? TextInputType.text
-                                  : TextInputType.number,
-                              onChanged: (_) {
-                                // Update UI when input changes to recalculate amount
-                                if (_useFormula && _formula != null) {
-                                  setState(() {});
-                                }
-                              },
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter $column';
-                                }
+                            child: hasOptions
+                                // Use dropdown if options are available
+                                ? DropdownButtonFormField<String>(
+                                    value: _controllers[column]!.text.isNotEmpty
+                                        ? _controllers[column]!.text
+                                        : null,
+                                    decoration: InputDecoration(
+                                      labelText: column,
+                                      border: const OutlineInputBorder(),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 16),
+                                    ),
+                                    hint:
+                                        Text('Select ${column.toLowerCase()}'),
+                                    items: widget.columnOptions[column]!
+                                        .map((option) {
+                                      return DropdownMenuItem<String>(
+                                        value: option,
+                                        child: Text(option),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        _controllers[column]!.text = value;
+                                        // Update UI when input changes to recalculate amount
+                                        if (_useFormula && _formula != null) {
+                                          setState(() {});
+                                        }
+                                      }
+                                    },
+                                    // Format the display value based on field type
+                                    selectedItemBuilder: (context) {
+                                      return widget.columnOptions[column]!
+                                          .map((option) {
+                                        return Text(option);
+                                      }).toList();
+                                    },
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please select $column';
+                                      }
+                                      return null;
+                                    },
+                                  )
+                                // Use text field if no options are available
+                                : TextFormField(
+                                    controller: _controllers[column],
+                                    decoration: InputDecoration(
+                                      labelText: column,
+                                      border: const OutlineInputBorder(),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 16),
+                                      hintText: 'Enter ${column.toLowerCase()}',
+                                    ),
+                                    keyboardType: fieldType == FieldType.text
+                                        ? TextInputType.text
+                                        : TextInputType.number,
+                                    onChanged: (_) {
+                                      // Update UI when input changes to recalculate amount
+                                      if (_useFormula && _formula != null) {
+                                        setState(() {});
+                                      }
+                                    },
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter $column';
+                                      }
 
-                                // Validate
-                                if (fieldType == FieldType.integer) {
-                                  if (int.tryParse(value) == null) {
-                                    return 'Please enter a valid whole number';
-                                  }
-                                } else if (fieldType == FieldType.decimal) {
-                                  if (double.tryParse(value) == null) {
-                                    return 'Please enter a valid number';
-                                  }
-                                }
+                                      // Validate
+                                      if (fieldType == FieldType.integer) {
+                                        if (int.tryParse(value) == null) {
+                                          return 'Please enter a valid whole number';
+                                        }
+                                      } else if (fieldType ==
+                                          FieldType.decimal) {
+                                        if (double.tryParse(value) == null) {
+                                          return 'Please enter a valid number';
+                                        }
+                                      }
 
-                                return null;
-                              },
-                            ),
+                                      return null;
+                                    },
+                                  ),
                           );
                         }
                       }),
