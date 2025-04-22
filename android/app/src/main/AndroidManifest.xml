@@ -2,7 +2,7 @@
     <!-- Permissions for sharing files -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <application
-        android:label="Invoice Manager"
+        android:label="ElakkaiTrack"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

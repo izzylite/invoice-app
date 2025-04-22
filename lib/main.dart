@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'pages/splash_screen_page.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:invoice_app/pages/splash_screen_page.dart';
 import 'pages/dashboard_page.dart' as dashboard;
 
 void main() {
+  // This preserves the splash screen until the app is fully loaded
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
   runApp(const MyApp());
 }
 
@@ -11,8 +16,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Remove the splash screen when the app is ready
+    FlutterNativeSplash.remove();
     return MaterialApp(
-      title: 'Invoice Manager',
+      title: 'ElakkaiTrack',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF4A6741),

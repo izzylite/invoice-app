@@ -54,6 +54,9 @@ dependencies:
   # For SVG support
   flutter_svg: ^2.0.10
 
+  # For splash screen
+  flutter_native_splash: ^2.3.10
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

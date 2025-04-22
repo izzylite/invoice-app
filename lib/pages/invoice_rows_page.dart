@@ -46,7 +46,7 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
     // Initialize formula from widget
     _formula = widget.amountFormula;
     _useFormula = true; // Always use formula by default
-    widget.columns.add("Amount");
+
     _items = List.from(widget.existingItems);
 
     for (var column in widget.columns) {
@@ -228,45 +228,84 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                             _columnTypes[column] ?? FieldType.text;
 
                         if (column == 'Amount') {
+                          // Calculate the amount based on current input values
+                          double calculatedAmount = calculateAmount();
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            child: TextFormField(
-                              controller: _controllers[column],
-                              initialValue: calculateAmount().toString(),
-                              decoration: InputDecoration(
-                                labelText: column,
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 16),
-                                hintText: _useFormula && _formula != null
-                                    ? 'Calculated: ${_formula!.getFormulaString()}'
-                                    : 'Enter ${column.toLowerCase()}',
-                                prefixText: currencySymbol,
-                                suffixIcon: _useFormula && _formula != null
-                                    ? Tooltip(
-                                        message:
-                                            'Using formula: ${_formula!.getFormulaString()}',
-                                        child: const Icon(Icons.functions,
-                                            color: Colors.blue),
-                                      )
-                                    : null,
-                              ),
-                              keyboardType: TextInputType.number,
-                              enabled:
-                                  !_useFormula, // Disable when using formula
-                              validator: (value) {
-                                if (_useFormula) {
-                                  return null; // Skip validation when using formula
-                                }
-
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter $column';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Please enter a valid number';
-                                }
-                                return null;
-                              },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Label for the Amount field
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 4, bottom: 8),
+                                  child: Text(
+                                    'Amount',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                                // Container to display the calculated amount
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 18),
+                                  decoration: BoxDecoration(
+                                    border:
+                                        Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(4),
+                                    color: Colors.grey.shade50,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      // Display the calculated amount
+                                      Text(
+                                        '$currencySymbol${formatNumber(calculatedAmount)}',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      // Show formula information
+                                      if (_useFormula && _formula != null)
+                                        Tooltip(
+                                          message:
+                                              'Using formula: ${_formula!.getFormulaString()}',
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.functions,
+                                                  color: Colors.blue, size: 20),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _formula!.getFormulaString(),
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade700,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                // Store the calculated amount in the controller for later use
+                                SizedBox(
+                                  height: 0,
+                                  width: 0,
+                                  child: TextFormField(
+                                    controller: _controllers[column]!
+                                      ..text = calculatedAmount.toString(),
+                                    enabled: false,
+                                    style: const TextStyle(height: 0),
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         } else {
@@ -284,6 +323,12 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                               keyboardType: fieldType == FieldType.text
                                   ? TextInputType.text
                                   : TextInputType.number,
+                              onChanged: (_) {
+                                // Update UI when input changes to recalculate amount
+                                if (_useFormula && _formula != null) {
+                                  setState(() {});
+                                }
+                              },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter $column';

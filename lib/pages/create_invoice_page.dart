@@ -22,6 +22,11 @@ class CreateInvoicePage extends StatefulWidget {
 class _CreateInvoicePageState extends State<CreateInvoicePage> {
   final TextEditingController _invoiceTitleController = TextEditingController();
   final TextEditingController _buildyController = TextEditingController();
+  final TextEditingController _numberOfBagsController =
+      TextEditingController(text: '0');
+
+  // Date picker variables
+  DateTime _selectedDate = DateTime.now();
 
   final List<String> _paymentMethods = [];
   final TextEditingController _paymentMethodController =
@@ -58,7 +63,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   Formula _amountFormula = Formula(
       components: List.from([
     FormulaComponent(columnName: 'Kg', operation: OperationType.multiply),
-    FormulaComponent(columnName: 'Rate', operation: OperationType.add),
+    FormulaComponent(columnName: 'Rate', operation: OperationType.multiply),
   ]));
 
   @override
@@ -73,6 +78,8 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   void _loadInvoiceData(Invoice invoice) {
     _invoiceTitleController.text = invoice.title;
     _buildyController.text = invoice.buildyNumber;
+    _numberOfBagsController.text = invoice.numberOfBags.toString();
+    _selectedDate = invoice.invoiceDate;
     _freightCostController.text = invoice.freightCost.toString();
     _selectedCurrency = invoice.currency;
     _columns = invoice.columns;
@@ -89,6 +96,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   void dispose() {
     _invoiceTitleController.dispose();
     _buildyController.dispose();
+    _numberOfBagsController.dispose();
     _freightCostController.dispose();
     _paymentMethodController.dispose();
 
@@ -99,6 +107,34 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     setState(() {
       _freightCost = double.tryParse(value) ?? 0.0;
     });
+  }
+
+  // Method to show date picker
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Theme.of(context).colorScheme.onPrimary,
+              onSurface: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 
   String? validateInvoiceData() {
@@ -120,6 +156,8 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       title: _invoiceTitleController.text.trim(),
       buildyNumber: _buildyController.text.trim(),
       createdAt: widget.invoice?.createdAt ?? DateTime.now(),
+      invoiceDate: _selectedDate,
+      numberOfBags: int.tryParse(_numberOfBagsController.text) ?? 0,
       columns: _columns,
       items: _items,
       freightCost: _freightCost,
@@ -410,6 +448,45 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         hintText: 'Enter transport number',
                       ),
                       textCapitalization: TextCapitalization.characters,
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () =>
+                          FocusScope.of(context).nextFocus(),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Date picker field
+                    InkWell(
+                      onTap: () => _selectDate(context),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Invoice Date',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 16),
+                          suffixIcon: Icon(Icons.calendar_today),
+                        ),
+                        child: Text(
+                          '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Number of bags field
+                    TextFormField(
+                      controller: _numberOfBagsController,
+                      decoration: const InputDecoration(
+                        labelText: 'No of Bags',
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        hintText: 'Enter number of bags',
+                        suffixIcon: Icon(Icons.shopping_bag_outlined),
+                      ),
+                      keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.next,
                       onEditingComplete: () =>
                           FocusScope.of(context).nextFocus(),

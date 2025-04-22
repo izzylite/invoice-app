@@ -7,6 +7,8 @@ class Invoice {
   String title;
   String buildyNumber;
   DateTime createdAt;
+  DateTime invoiceDate;
+  int numberOfBags;
   List<String> columns;
   List<InvoiceItem> items;
   double freightCost;
@@ -19,13 +21,15 @@ class Invoice {
     required this.title,
     this.buildyNumber = '',
     required this.createdAt,
+    DateTime? invoiceDate,
+    this.numberOfBags = 0,
     required this.columns,
     required this.items,
     this.freightCost = 0.0,
     this.currency = Currency.rupee,
     this.paymentMethods = const [],
     this.formula,
-  });
+  }) : this.invoiceDate = invoiceDate ?? DateTime.now();
 
   double get totalAmount {
     return _calculateTotalAmount(this);
@@ -63,6 +67,8 @@ class Invoice {
       'title': title,
       'buildyNumber': buildyNumber,
       'createdAt': createdAt.toIso8601String(),
+      'invoiceDate': invoiceDate.toIso8601String(),
+      'numberOfBags': numberOfBags,
       'columns': columns,
       'items': items.map((item) => item.toJson()).toList(),
       'freightCost': freightCost,
@@ -90,11 +96,24 @@ class Invoice {
       formula = Formula.fromJson(json['formula']);
     }
 
+    // Parse invoice date if it exists, otherwise use createdAt date
+    DateTime invoiceDate;
+    if (json['invoiceDate'] != null) {
+      invoiceDate = DateTime.parse(json['invoiceDate']);
+    } else {
+      invoiceDate = DateTime.parse(json['createdAt']);
+    }
+
+    // Parse number of bags if it exists
+    int numberOfBags = json['numberOfBags'] ?? 0;
+
     return Invoice(
       id: json['id'],
       title: json['title'],
       buildyNumber: json['buildyNumber'],
       createdAt: DateTime.parse(json['createdAt']),
+      invoiceDate: invoiceDate,
+      numberOfBags: numberOfBags,
       columns: List<String>.from(json['columns']),
       items: (json['items'] as List)
           .map((item) => InvoiceItem.fromJson(item))
