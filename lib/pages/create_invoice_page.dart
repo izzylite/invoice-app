@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:elakkaitrack/services/column_options_service.dart';
 import 'package:elakkaitrack/services/customer_options_service.dart';
+import 'package:elakkaitrack/services/company_info_service.dart';
 import 'package:elakkaitrack/utils/currency.dart';
 import 'package:elakkaitrack/utils/column_utils.dart';
 import 'package:elakkaitrack/pages/customer_options_page.dart';
@@ -68,6 +69,11 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   // Store customer name options
   List<String> _customerOptions = [];
 
+  // Company info fields state
+  bool _companyNameLocked = false;
+  bool _companySubtitleLocked = false;
+  bool _contactNumberLocked = false;
+
   List<InvoiceItem> _items = [];
 
   List<String> getNonTextColume() {
@@ -102,8 +108,14 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     // Load customer options
     _loadCustomerOptions();
 
+    // Load company info
+    _loadCompanyInfo();
+
     if (widget.invoice != null) {
       _loadInvoiceData(widget.invoice!);
+    } else {
+      // For new invoices, apply saved company info
+      _applyCompanyInfo();
     }
   }
 
@@ -113,6 +125,42 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     setState(() {
       _customerOptions = options;
     });
+  }
+
+  // Load company info from shared preferences
+  Future<void> _loadCompanyInfo() async {
+    final companyInfo = await CompanyInfoService.getCompanyInfo();
+    if (companyInfo != null) {
+      setState(() {
+        // Only lock fields if we have saved company info
+        _companyNameLocked = companyInfo.name.isNotEmpty;
+        _companySubtitleLocked = companyInfo.subtitle.isNotEmpty;
+        _contactNumberLocked = companyInfo.contactNumber.isNotEmpty;
+      });
+    }
+  }
+
+  // Apply saved company info to fields
+  Future<void> _applyCompanyInfo() async {
+    final companyInfo = await CompanyInfoService.getCompanyInfo();
+    if (companyInfo != null && mounted) {
+      setState(() {
+        if (companyInfo.name.isNotEmpty) {
+          _companyNameController.text = companyInfo.name;
+          _companyNameLocked = true;
+        }
+
+        if (companyInfo.subtitle.isNotEmpty) {
+          _companySubtitleController.text = companyInfo.subtitle;
+          _companySubtitleLocked = true;
+        }
+
+        if (companyInfo.contactNumber.isNotEmpty) {
+          _contactNumberController.text = companyInfo.contactNumber;
+          _contactNumberLocked = true;
+        }
+      });
+    }
   }
 
   Future<Map<String, List<String>>> getSavedColumeOptions(
@@ -263,6 +311,22 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     if (customerName.isNotEmpty && !_customerOptions.contains(customerName)) {
       _customerOptions.add(customerName);
       CustomerOptionsService.saveCustomerOptions(_customerOptions);
+    }
+
+    // Save company info to preferences
+    final companyName = _companyNameController.text.trim();
+    final companySubtitle = _companySubtitleController.text.trim();
+    final contactNumber = _contactNumberController.text.trim();
+
+    if (companyName.isNotEmpty ||
+        companySubtitle.isNotEmpty ||
+        contactNumber.isNotEmpty) {
+      final companyInfo = CompanyInfo(
+        name: companyName,
+        subtitle: companySubtitle,
+        contactNumber: contactNumber,
+      );
+      CompanyInfoService.saveCompanyInfo(companyInfo);
     }
 
     return Invoice(
@@ -541,69 +605,130 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    TextFormField(
-                      controller: _companyNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Company Name',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter your company name',
-                        prefixIcon: Icon(Icons.business),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _companyNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Company Name',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              hintText: 'Enter your company name',
+                              prefixIcon: Icon(Icons.business),
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            onEditingComplete: () =>
+                                FocusScope.of(context).nextFocus(),
+                            enabled: !_companyNameLocked,
+                          ),
+                        ),
+                        if (_companyNameLocked) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit company name',
+                            color: Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              setState(() {
+                                _companyNameLocked = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _companySubtitleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Company Subtitle',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter company subtitle or tagline',
-                        prefixIcon: Icon(Icons.short_text),
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _companySubtitleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Company Subtitle',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              hintText: 'Enter company subtitle or tagline',
+                              prefixIcon: Icon(Icons.short_text),
+                            ),
+                            textCapitalization: TextCapitalization.sentences,
+                            textInputAction: TextInputAction.next,
+                            onEditingComplete: () =>
+                                FocusScope.of(context).nextFocus(),
+                            enabled: !_companySubtitleLocked,
+                          ),
+                        ),
+                        if (_companySubtitleLocked) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit company subtitle',
+                            color: Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              setState(() {
+                                _companySubtitleLocked = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _contactNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Number',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter 10-digit contact number',
-                        prefixText: '+91',
-                        prefixIcon: Icon(Icons.numbers_outlined),
-                        helperText: 'Enter a 10-digit mobile number',
-                      ),
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      maxLength: 10,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
-                      // Add inline validation
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return null; // Contact number is optional
-                        }
-                        if (int.tryParse(value) == null) {
-                          return 'Enter digits only';
-                        }
-                        if (value.length != 10) {
-                          return 'Must be 10 digits';
-                        }
-                        return null;
-                      },
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _contactNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Contact Number',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              hintText: 'Enter 10-digit contact number',
+                              prefixText: '+91',
+                              prefixIcon: Icon(Icons.numbers_outlined),
+                              helperText: 'Enter a 10-digit mobile number',
+                            ),
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            maxLength: 10,
+                            onEditingComplete: () =>
+                                FocusScope.of(context).nextFocus(),
+                            // Add inline validation
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return null; // Contact number is optional
+                              }
+                              if (int.tryParse(value) == null) {
+                                return 'Enter digits only';
+                              }
+                              if (value.length != 10) {
+                                return 'Must be 10 digits';
+                              }
+                              return null;
+                            },
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            enabled: !_contactNumberLocked,
+                          ),
+                        ),
+                        if (_contactNumberLocked) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit contact number',
+                            color: Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              setState(() {
+                                _contactNumberLocked = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
