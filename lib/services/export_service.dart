@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:csv/csv.dart';
-import 'package:invoice_app/utils/currency.dart';
+import 'package:elakkaitrack/utils/currency.dart';
+import 'package:elakkaitrack/utils/column_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/invoice.dart';
@@ -19,7 +20,25 @@ class ExportService {
     try {
       List<List<dynamic>> csvData = [];
 
-      csvData.add(['Invoice:', invoice.title]);
+      // Add company information if available
+      if (invoice.companyName.isNotEmpty) {
+        csvData.add(['Company:', invoice.companyName]);
+      }
+
+      if (invoice.companySubtitle.isNotEmpty) {
+        csvData.add(['', invoice.companySubtitle]);
+      }
+      if (invoice.companySubtitle.isNotEmpty) {
+        csvData.add(['Contact No:', "+91 ${invoice.contactNumber}"]);
+      }
+
+      // Add a blank line after company info if either field is present
+      if (invoice.companyName.isNotEmpty ||
+          invoice.companySubtitle.isNotEmpty) {
+        csvData.add([]);
+      }
+
+      csvData.add(['Customer:', invoice.title]);
 
       if (invoice.buildyNumber.isNotEmpty) {
         csvData.add(['Buildy Number:', invoice.buildyNumber]);
@@ -68,7 +87,18 @@ class ExportService {
       // Add empty row
       csvData.add([]);
 
-      String currencySymbol = getCurrencySymbol(invoice.currency);
+      String currencySymbol =
+          getCurrencySymbol(invoice.currency, replaceForExport: true);
+
+      // Add total parcel and kg rows
+      for (var col in getFilteredColumns(invoice.columns, ["Parcel", "Kg"])) {
+        List<dynamic> colTotalRow =
+            List<dynamic>.generate(invoice.columns.length - 1, (_) => '');
+        colTotalRow.add('Total $col:');
+        colTotalRow
+            .add('${getColumnTotal(col, invoice.columns, invoice.items)}');
+        csvData.add(colTotalRow);
+      }
 
       List<dynamic> totalRow =
           List<dynamic>.generate(invoice.columns.length - 1, (_) => '');
@@ -98,8 +128,6 @@ class ExportService {
 
       // Convert to CSV string
       String csv = const ListToCsvConverter().convert(csvData);
-
-      csv = _replaceCurrencySymbols(csv, invoice.currency);
 
       final directory = await getApplicationDocumentsDirectory();
 
@@ -136,12 +164,5 @@ class ExportService {
     } catch (ignore) {
       // Handle error
     }
-  }
-
-  static String _replaceCurrencySymbols(String csv, Currency currency) {
-    csv = csv.replaceAll('₹', 'Rs.');
-    csv = csv.replaceAll('₦', 'N');
-
-    return csv;
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:invoice_app/utils/currency.dart';
+import 'package:elakkaitrack/utils/currency.dart';
+import 'package:elakkaitrack/utils/column_utils.dart';
 import '../models/invoice.dart';
 import '../widgets/invoice_table.dart';
 import '../services/export_service.dart';
@@ -19,6 +20,16 @@ class InvoicePreviewPage extends StatelessWidget {
       {super.key,
       required this.invoice,
       this.source = PreviewSource.createInvoice});
+
+  // Get non-text columns (specifically Parcel and Kg)
+  List<String> getNonTextColumns() {
+    return getFilteredColumns(invoice.columns, ["Parcel", "Kg"]);
+  }
+
+  // Calculate total for a specific column
+  int getTotal(String column) {
+    return getColumnTotal(column, invoice.columns, invoice.items);
+  }
 
   void _showExportOptions(BuildContext context, Invoice invoice) {
     showModalBottomSheet(
@@ -201,6 +212,51 @@ class InvoicePreviewPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Company information card
+            if (invoice.companyName.isNotEmpty ||
+                invoice.companySubtitle.isNotEmpty)
+              Card(
+                margin: const EdgeInsets.only(bottom: 16.0),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.0)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (invoice.companyName.isNotEmpty)
+                        Text(
+                          invoice.companyName,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      if (invoice.companySubtitle.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            invoice.companySubtitle,
+                            style: const TextStyle(
+                                fontSize: 16, fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                      const Divider(height: 24),
+                      Row(
+                        children: [
+                          const Icon(Icons.business,
+                              size: 16, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Invoice Information',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             // Invoice header card
             Card(
               margin: const EdgeInsets.only(bottom: 16.0),
@@ -211,10 +267,20 @@ class InvoicePreviewPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      invoice.title,
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        const Icon(Icons.person, size: 20, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Customer: ',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          invoice.title,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -223,7 +289,7 @@ class InvoicePreviewPage extends StatelessWidget {
                             size: 16, color: Colors.grey),
                         const SizedBox(width: 4),
                         Text(
-                          'Date: ${invoice.createdAt.toString().substring(0, 10)}',
+                          'Date: ${invoice.invoiceDate.day}-${invoice.invoiceDate.month}-${invoice.invoiceDate.year}',
                           style: const TextStyle(color: Colors.grey),
                         ),
                       ],
@@ -287,6 +353,22 @@ class InvoicePreviewPage extends StatelessWidget {
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
+                    // Display total for Parcel and Kg columns
+                    ...getNonTextColumns().map((col) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Total $col:'),
+                              Text(
+                                '${getTotal(col)}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [

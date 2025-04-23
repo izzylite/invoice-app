@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:invoice_app/utils/currency.dart';
+import 'package:elakkaitrack/utils/currency.dart';
 import '../models/invoice_item.dart';
 
 class InvoiceTable extends StatefulWidget {

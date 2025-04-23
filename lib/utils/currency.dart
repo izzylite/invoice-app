@@ -1,14 +1,23 @@
-import 'package:invoice_app/pages/invoice_rows_page.dart';
+import 'package:elakkaitrack/pages/invoice_rows_page.dart';
 
-getCurrencySymbol(Currency currency) {
+getCurrencySymbol(Currency currency, {bool replaceForExport = false}) {
+  String cur;
   switch (currency) {
     case Currency.naira:
-      return '₦';
+      cur = '₦';
+      break;
     case Currency.dollar:
-      return '\$';
+      cur = '\$';
+      break;
     case Currency.rupee:
-      return '₹';
+      cur = '₹';
+      break;
   }
+  if (replaceForExport) {
+    cur = cur.replaceAll('₹', 'Rs.');
+    cur = cur.replaceAll('₦', 'N');
+  }
+  return cur;
 }
 
 String formatNumber(dynamic value) {

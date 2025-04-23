@@ -6,26 +6,27 @@ import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import '../models/invoice.dart';
 import '../utils/currency.dart';
+import '../utils/column_utils.dart';
+import 'package:flutter/foundation.dart';
 
 class PdfExportService {
   static Future<String?> exportInvoiceToPdf(Invoice invoice) async {
     try {
       final pdf = pw.Document();
 
-      // Load font
-      final font = await PdfGoogleFonts.nunitoRegular();
-      final fontBold = await PdfGoogleFonts.nunitoBold();
-
       // Define styles
-      final titleStyle = pw.TextStyle(font: fontBold, fontSize: 24);
-      final headerStyle = pw.TextStyle(font: fontBold, fontSize: 16);
-      final subheaderStyle = pw.TextStyle(font: fontBold, fontSize: 14);
-      final bodyStyle = pw.TextStyle(font: font, fontSize: 12);
-      final smallStyle =
-          pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700);
+      final titleStyle =
+          pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold);
+      final headerStyle =
+          pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold);
+      final subheaderStyle =
+          pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold);
+      final bodyStyle = pw.TextStyle(fontSize: 12);
+      final smallStyle = pw.TextStyle(fontSize: 10, color: PdfColors.grey700);
 
       // Get currency symbol
-      final currencySymbol = getCurrencySymbol(invoice.currency);
+      final currencySymbol =
+          getCurrencySymbol(invoice.currency, replaceForExport: true);
 
       // Create PDF content
       pdf.addPage(
@@ -36,9 +37,19 @@ class PdfExportService {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('ElakkaiTrack', style: titleStyle),
+                if (invoice.companyName.isNotEmpty)
+                  pw.Text(invoice.companyName, style: titleStyle)
+                else
+                  pw.Text('ElakkaiTrack', style: titleStyle),
                 pw.SizedBox(height: 4),
-                pw.Text('Smart Spice Management', style: smallStyle),
+                if (invoice.companySubtitle.isNotEmpty)
+                  pw.Text(invoice.companySubtitle, style: smallStyle)
+                else
+                  pw.Text('Smart Spice Management', style: smallStyle),
+                if (invoice.contactNumber > 0)
+                  pw.Text("+91 ${invoice.contactNumber}", style: smallStyle)
+                else
+                  pw.Text('Smart Spice Management', style: smallStyle),
                 pw.Divider(),
               ],
             );
@@ -68,7 +79,12 @@ class PdfExportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(invoice.title, style: headerStyle),
+                    pw.Row(
+                      children: [
+                        pw.Text('Customer: ', style: bodyStyle),
+                        pw.Text(invoice.title, style: headerStyle),
+                      ],
+                    ),
                     pw.SizedBox(height: 8),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -116,10 +132,25 @@ class PdfExportService {
                   invoice, currencySymbol, bodyStyle, headerStyle),
 
               pw.SizedBox(height: 20),
-
+              // Add total parcel and kg rows
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Column(
+                  children: [
+                    // Add total parcel and kg rows
+                    ...getFilteredColumns(invoice.columns, [
+                      "Parcel",
+                      "Kg"
+                    ]).map((col) => _buildSummaryRow(
+                        'Total $col:',
+                        '${getColumnTotal(col, invoice.columns, invoice.items)}',
+                        bodyStyle)),
+                  ],
+                ),
+              ),
               // Summary section
               pw.Header(level: 1, text: 'Summary', textStyle: subheaderStyle),
-              pw.SizedBox(height: 8),
+              pw.SizedBox(height: 10),
               pw.Container(
                 padding: const pw.EdgeInsets.all(8),
                 decoration: pw.BoxDecoration(

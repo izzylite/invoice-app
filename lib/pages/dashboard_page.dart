@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:invoice_app/utils/currency.dart';
+import 'package:elakkaitrack/utils/currency.dart';
 import '../models/invoice.dart';
 import '../services/invoice_service.dart';
 import '../services/event_bus.dart';
@@ -63,7 +63,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (_selectedDate != null && _isFilterActive) {
       // Filter invoices by the selected date
       _filteredInvoices = _invoices.where((invoice) {
-        return _isSameDay(invoice.createdAt, _selectedDate!);
+        return _isSameDay(invoice.invoiceDate, _selectedDate!);
       }).toList();
     } else {
       // No filter, show all invoices
@@ -283,7 +283,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             if (_isFilterActive) ...[
                               const SizedBox(width: 8),
                               IconButton(
-                                icon: const Icon(Icons.close),
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                ),
                                 onPressed: _clearDateFilter,
                                 tooltip: 'Clear filter',
                                 color: Theme.of(context).colorScheme.primary,
@@ -403,7 +406,10 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _clearDateFilter,
-            icon: const Icon(Icons.filter_alt_off),
+            icon: const Icon(
+              Icons.filter_alt_off,
+              color: Colors.white,
+            ),
             label: const Text('Clear Filter'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -464,7 +470,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 size: 12, color: Colors.grey[600]),
                             const SizedBox(width: 4),
                             Text(
-                              invoice.createdAt.toString().substring(0, 10),
+                              invoice.invoiceDate.toString().substring(0, 10),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[600]),
                             ),

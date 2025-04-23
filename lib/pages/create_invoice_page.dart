@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:invoice_app/services/column_options_service.dart';
-import 'package:invoice_app/utils/currency.dart';
+import 'package:elakkaitrack/services/column_options_service.dart';
+import 'package:elakkaitrack/utils/currency.dart';
+import 'package:elakkaitrack/utils/column_utils.dart';
 import '../models/invoice.dart';
 import '../models/invoice_item.dart';
 import '../models/column_definition.dart';
@@ -21,10 +22,15 @@ class CreateInvoicePage extends StatefulWidget {
 }
 
 class _CreateInvoicePageState extends State<CreateInvoicePage> {
+  final TextEditingController _companyNameController = TextEditingController();
+  final TextEditingController _companySubtitleController =
+      TextEditingController();
   final TextEditingController _invoiceTitleController = TextEditingController();
   final TextEditingController _buildyController = TextEditingController();
   final TextEditingController _numberOfBagsController =
       TextEditingController(text: '0');
+  final TextEditingController _contactNumberController =
+      TextEditingController(text: '');
 
   // Date picker variables
   DateTime _selectedDate = DateTime.now();
@@ -58,6 +64,14 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   Map<String, List<String>> _columnOptions = {};
 
   List<InvoiceItem> _items = [];
+
+  List<String> getNonTextColume() {
+    return getFilteredColumns(_columns, ["Parcel", "Kg"]);
+  }
+
+  int getTotal(String column) {
+    return getColumnTotal(column, _columns, _items);
+  }
 
   Currency _selectedCurrency = Currency.rupee;
   double _freightCost = 0.0;
@@ -96,9 +110,14 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   }
 
   void _loadInvoiceData(Invoice invoice) {
+    _companyNameController.text = invoice.companyName;
+    _companySubtitleController.text = invoice.companySubtitle;
     _invoiceTitleController.text = invoice.title;
     _buildyController.text = invoice.buildyNumber;
     _numberOfBagsController.text = invoice.numberOfBags.toString();
+    // Handle contact number - only set if it's not 0
+    _contactNumberController.text =
+        invoice.contactNumber > 0 ? invoice.contactNumber.toString() : '';
     _selectedDate = invoice.invoiceDate;
     _freightCostController.text = invoice.freightCost.toString();
     _selectedCurrency = invoice.currency;
@@ -114,9 +133,12 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
 
   @override
   void dispose() {
+    _companyNameController.dispose();
+    _companySubtitleController.dispose();
     _invoiceTitleController.dispose();
     _buildyController.dispose();
     _numberOfBagsController.dispose();
+    _contactNumberController.dispose();
     _freightCostController.dispose();
     _paymentMethodController.dispose();
 
@@ -159,17 +181,35 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
 
   String? validateInvoiceData() {
     if (_invoiceTitleController.text.trim().isEmpty) {
-      return 'Invoice title cannot be empty';
+      return 'Customer name cannot be empty';
     }
 
-    if (_buildyController.text.trim().isEmpty) {
-      return 'Buildy number cannot be empty';
+    // Validate contact number
+    String contactNumber = _contactNumberController.text.trim();
+    if (contactNumber.isNotEmpty) {
+      // Check if it's a valid number
+      if (int.tryParse(contactNumber) == null) {
+        return 'Contact number must contain only digits';
+      }
+
+      // Check length (assuming Indian phone numbers which are 10 digits)
+      if (contactNumber.length != 10) {
+        return 'Contact number must be 10 digits';
+      }
     }
+
     return null;
   }
 
   // Create invoice object
   Invoice createInvoiceData() {
+    // Parse contact number with validation
+    int contactNum = 0;
+    String contactText = _contactNumberController.text.trim();
+    if (contactText.isNotEmpty && int.tryParse(contactText) != null) {
+      contactNum = int.parse(contactText);
+    }
+
     return Invoice(
       id: widget.invoice?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
@@ -178,12 +218,15 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       createdAt: widget.invoice?.createdAt ?? DateTime.now(),
       invoiceDate: _selectedDate,
       numberOfBags: int.tryParse(_numberOfBagsController.text) ?? 0,
+      contactNumber: contactNum,
       columns: _columns,
       items: _items,
       freightCost: _freightCost,
       currency: _selectedCurrency,
       paymentMethods: _paymentMethods,
       formula: _amountFormula, // Include formula in the invoice
+      companyName: _companyNameController.text.trim(),
+      companySubtitle: _companySubtitleController.text.trim(),
     );
   }
 
@@ -438,6 +481,92 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                     const Padding(
                       padding: EdgeInsets.only(bottom: 16.0),
                       child: Text(
+                        'Company Information',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    TextFormField(
+                      controller: _companyNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Company Name',
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        hintText: 'Enter your company name',
+                        prefixIcon: Icon(Icons.business),
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () =>
+                          FocusScope.of(context).nextFocus(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _companySubtitleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Company Subtitle',
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        hintText: 'Enter company subtitle or tagline',
+                        prefixIcon: Icon(Icons.short_text),
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () =>
+                          FocusScope.of(context).nextFocus(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _contactNumberController,
+                      decoration: const InputDecoration(
+                        labelText: 'Contact Number',
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        hintText: 'Enter 10-digit contact number',
+                        prefixText: '+91',
+                        prefixIcon: Icon(Icons.numbers_outlined),
+                        helperText: 'Enter a 10-digit mobile number',
+                      ),
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      maxLength: 10,
+                      onEditingComplete: () =>
+                          FocusScope.of(context).nextFocus(),
+                      // Add inline validation
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return null; // Contact number is optional
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Enter digits only';
+                        }
+                        if (value.length != 10) {
+                          return 'Must be 10 digits';
+                        }
+                        return null;
+                      },
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              margin: const EdgeInsets.all(8.0),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 16.0),
+                      child: Text(
                         'Invoice Details',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
@@ -446,12 +575,12 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                     TextFormField(
                       controller: _invoiceTitleController,
                       decoration: const InputDecoration(
-                        labelText: 'Invoice Title',
+                        labelText: 'Customer Name',
                         border: OutlineInputBorder(),
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter a title for this invoice',
-                        prefixIcon: Icon(Icons.title),
+                        hintText: 'Enter customer name',
+                        prefixIcon: Icon(Icons.person),
                       ),
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
@@ -467,7 +596,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                         hintText: 'Enter transport number',
-                        prefixIcon: Icon(Icons.local_shipping),
+                        prefixIcon: Icon(Icons.local_shipping_outlined),
                       ),
                       textCapitalization: TextCapitalization.characters,
                       textInputAction: TextInputAction.next,
@@ -643,35 +772,28 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.0)),
                     child: InkWell(
-                      onTap: _columns.isEmpty
-                          ? () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please define columns first'),
-                                ),
-                              );
-                            }
-                          : () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => InvoiceRowsPage(
-                                    columns: _columns,
-                                    columnTypes: _columnTypes,
-                                    columnOptions: _columnOptions,
-                                    existingItems: _items,
-                                    selectedCurrency: _selectedCurrency,
-                                    amountFormula: _amountFormula,
-                                  ),
-                                ),
-                              );
+                      onTap: () async {
+                        // Navigate directly to the rows page with the stored column definitions
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => InvoiceRowsPage(
+                              columns: _columns,
+                              columnTypes: _columnTypes,
+                              columnOptions: _columnOptions,
+                              existingItems: _items,
+                              selectedCurrency: _selectedCurrency,
+                              amountFormula: _amountFormula,
+                            ),
+                          ),
+                        );
 
-                              if (result != null) {
-                                setState(() {
-                                  _items = result['items'];
-                                });
-                              }
-                            },
+                        if (result != null && mounted) {
+                          setState(() {
+                            _items = result['items'];
+                          });
+                        }
+                      },
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
@@ -757,6 +879,21 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
                           children: [
+                            ...getNonTextColume().map((col) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Total $col:',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      Text('${getTotal(col)}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                )),
                             const Divider(height: 32, thickness: 1),
                             Padding(
                               padding:

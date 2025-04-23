@@ -1,5 +1,5 @@
-name: invoice_app
-description: "An invoice management app for creating, managing, and exporting invoices."
+name: elakkaitrack
+description: "ElakkaiTrack - An invoice management app for creating, managing, and exporting invoices."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -56,9 +56,11 @@ dependencies:
 
   # For splash screen
   flutter_native_splash: ^2.3.10
+  # PDF generation and viewing
   pdf: ^3.11.3
   flutter_pdfview: ^1.4.0+1
   printing: ^5.14.2
+  flutter_launcher_icons: ^0.14.3
 
 dev_dependencies:
   flutter_test:

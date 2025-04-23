@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:invoice_app/utils/currency.dart';
+import 'package:elakkaitrack/utils/currency.dart';
 import '../models/invoice_item.dart';
 import '../models/column_definition.dart';
 import '../models/formula_calculation.dart';
@@ -181,14 +181,14 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
         _addRow();
         return true;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Please fill in all required fields correctly before saving'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
+        // Check if all controller values are empty
+        bool allEmpty = _controllers.values
+            .where((controller) => controller != _controllers['Amount'])
+            .every((controller) => controller.text.isEmpty);
+
+        if (allEmpty) {
+          return true;
+        }
         return false;
       }
     }
@@ -497,7 +497,6 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
                       title: Text(primaryValue),
                       subtitle: Text(
                         widget.columns
-                            .take(3)
                             .map((col) {
                               if (col != primaryValue) {
                                 return '$col: ${item.getValue(col)}';

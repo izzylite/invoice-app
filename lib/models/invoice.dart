@@ -15,6 +15,9 @@ class Invoice {
   Currency currency;
   List<String> paymentMethods;
   Formula? formula;
+  String companyName;
+  String companySubtitle;
+  int contactNumber;
 
   Invoice({
     required this.id,
@@ -29,6 +32,9 @@ class Invoice {
     this.currency = Currency.rupee,
     this.paymentMethods = const [],
     this.formula,
+    this.companyName = '',
+    this.companySubtitle = '',
+    this.contactNumber = 0,
   }) : invoiceDate = invoiceDate ?? DateTime.now();
 
   double get totalAmount {
@@ -75,6 +81,9 @@ class Invoice {
       'currency': currency.toString().split('.').last,
       'paymentMethods': paymentMethods,
       'formula': formula?.toJson(), // Serialize formula if it exists
+      'companyName': companyName,
+      'companySubtitle': companySubtitle,
+      'contactNumber': contactNumber,
     };
   }
 
@@ -107,6 +116,17 @@ class Invoice {
     // Parse number of bags if it exists
     int numberOfBags = json['numberOfBags'] ?? 0;
 
+    // Parse contact number with validation
+    int contactNumber = 0;
+    var contactValue = json['contactNumber'];
+    if (contactValue != null) {
+      if (contactValue is int) {
+        contactNumber = contactValue;
+      } else if (contactValue is String && contactValue.isNotEmpty) {
+        contactNumber = int.tryParse(contactValue) ?? 0;
+      }
+    }
+
     return Invoice(
       id: json['id'],
       title: json['title'],
@@ -122,6 +142,9 @@ class Invoice {
       currency: _parseCurrency(json['currency']),
       paymentMethods: List<String>.from(json['paymentMethods']),
       formula: formula,
+      companyName: json['companyName'] ?? '',
+      companySubtitle: json['companySubtitle'] ?? '',
+      contactNumber: contactNumber,
     );
   }
 }
