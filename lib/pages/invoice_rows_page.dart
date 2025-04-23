@@ -189,6 +189,7 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
             duration: Duration(seconds: 3),
           ),
         );
+        return false;
       }
     }
     return true;
@@ -211,7 +212,7 @@ class _InvoiceRowsPageState extends State<InvoiceRowsPage> {
         actions: [
           // Save button
           IconButton(
-            icon: const Icon(Icons.check),
+            icon: const Icon(Icons.save),
             onPressed: () {
               final canProceed = _addPendingRowIfNeeded();
               if (canProceed) {

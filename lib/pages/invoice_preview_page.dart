@@ -4,6 +4,7 @@ import 'package:invoice_app/utils/currency.dart';
 import '../models/invoice.dart';
 import '../widgets/invoice_table.dart';
 import '../services/export_service.dart';
+import '../services/pdf_export_service.dart';
 import '../services/invoice_service.dart';
 import 'create_invoice_page.dart';
 
@@ -19,9 +20,149 @@ class InvoicePreviewPage extends StatelessWidget {
       required this.invoice,
       this.source = PreviewSource.createInvoice});
 
-  Future<void> _exportInvoice(BuildContext context, Invoice invoice) async {
+  void _showExportOptions(BuildContext context, Invoice invoice) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Export Invoice',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              title: const Text('Export as PDF'),
+              subtitle: const Text('Create a PDF document'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportInvoiceToPdf(context, invoice);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.print, color: Colors.blue),
+              title: const Text('Print Invoice'),
+              subtitle: const Text('Send to printer'),
+              onTap: () {
+                Navigator.pop(context);
+                _printInvoice(context, invoice);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.table_chart, color: Colors.green),
+              title: const Text('Export as CSV'),
+              subtitle: const Text('Create a spreadsheet file'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportInvoiceToCSV(context, invoice);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportInvoiceToPdf(
+      BuildContext context, Invoice invoice) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Exporting invoice...')),
+      const SnackBar(content: Text('Creating PDF...')),
+    );
+
+    try {
+      final filePath = await PdfExportService.exportInvoiceToPdf(invoice);
+      if (filePath != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF created successfully!')),
+        );
+
+        // Show options for sharing or viewing
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          builder: (context) => Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'PDF Created',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.share, color: Colors.blue),
+                  title: const Text('Share PDF'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    PdfExportService.sharePdfFile(filePath);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.print, color: Colors.green),
+                  title: const Text('Print PDF'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    PdfExportService.printPdf(filePath);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to create PDF. Please try again.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating PDF: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _printInvoice(BuildContext context, Invoice invoice) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Preparing to print...')),
+    );
+
+    try {
+      final filePath = await PdfExportService.exportInvoiceToPdf(invoice);
+      if (filePath != null && context.mounted) {
+        await PdfExportService.printPdf(filePath);
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to prepare print job. Please try again.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportInvoiceToCSV(
+      BuildContext context, Invoice invoice) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Exporting to CSV...')),
     );
 
     try {
@@ -29,14 +170,14 @@ class InvoicePreviewPage extends StatelessWidget {
       if (filePath != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Export successful! Opening share dialog...')),
+              content: Text('CSV export successful! Opening share dialog...')),
         );
 
         await ExportService.shareCSVFile(filePath);
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Failed to export invoice. Please try again.')),
+              content: Text('Failed to export CSV. Please try again.')),
         );
       }
     } catch (e) {
@@ -261,10 +402,10 @@ class InvoicePreviewPage extends StatelessWidget {
                           ),
                         ),
                         ElevatedButton.icon(
-                          onPressed: () => _exportInvoice(context, invoice),
+                          onPressed: () => _showExportOptions(context, invoice),
                           icon: const Icon(Icons.file_download,
                               color: Colors.white),
-                          label: const Text('EXPORT CSV',
+                          label: const Text('EXPORT',
                               style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor:

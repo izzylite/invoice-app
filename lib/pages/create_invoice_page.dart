@@ -451,6 +451,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                         hintText: 'Enter a title for this invoice',
+                        prefixIcon: Icon(Icons.title),
                       ),
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
@@ -466,6 +467,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                         hintText: 'Enter transport number',
+                        prefixIcon: Icon(Icons.local_shipping),
                       ),
                       textCapitalization: TextCapitalization.characters,
                       textInputAction: TextInputAction.next,
@@ -484,7 +486,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 12, vertical: 16),
-                          suffixIcon: Icon(Icons.calendar_today),
+                          prefixIcon: Icon(Icons.calendar_today),
                         ),
                         child: Text(
                           '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
@@ -504,7 +506,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                         hintText: 'Enter number of bags',
-                        suffixIcon: Icon(Icons.shopping_bag_outlined),
+                        prefixIcon: Icon(Icons.shopping_bag_outlined),
                       ),
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.next,
@@ -521,6 +523,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 16),
+                              prefixIcon: Icon(Icons.currency_exchange),
                             ),
                             value: _selectedCurrency,
                             items: const [
@@ -561,6 +564,8 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                   horizontal: 12, vertical: 16),
                               hintText: 'Enter freight cost',
                               prefixText: getCurrencySymbol(_selectedCurrency),
+                              prefixIcon:
+                                  const Icon(Icons.local_shipping_outlined),
                             ),
                             keyboardType: TextInputType.number,
                             onChanged: _updateFreightCost,

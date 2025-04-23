@@ -4,7 +4,7 @@ import '../models/column_definition.dart';
 import '../models/formula_calculation.dart';
 import '../services/column_options_service.dart';
 import '../widgets/formula_dialog.dart';
-import '../widgets/options_dialog.dart';
+import 'column_options_page.dart';
 
 class InvoiceColumnsPage extends StatefulWidget {
   final List<String> existingColumns;
@@ -206,21 +206,25 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
     }
   }
 
-  // Show dialog to create or edit options for a column
-  void _showOptionsDialog(BuildContext context, int columnIndex) {
+  // Show page to create or edit options for a column
+  void _showOptionsDialog(BuildContext context, int columnIndex) async {
     final column = _columns[columnIndex];
 
-    showOptionsDialog(
+    final options = await Navigator.push<List<String>>(
       context,
-      column: column,
-      initialOptions: column.options,
-    ).then((options) {
-      if (options != null) {
-        setState(() {
-          _columns[columnIndex] = column.copyWith(options: options);
-        });
-      }
-    });
+      MaterialPageRoute(
+        builder: (context) => ColumnOptionsPage(
+          column: column,
+          initialOptions: column.options,
+        ),
+      ),
+    );
+
+    if (options != null) {
+      setState(() {
+        _columns[columnIndex] = column.copyWith(options: options);
+      });
+    }
   }
 
   @override
@@ -233,7 +237,7 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
         title: const Text('Define Columns'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.check),
+            icon: const Icon(Icons.save),
             onPressed: () {
               _ensureAmountColumnIsLast();
 
@@ -477,6 +481,11 @@ class _InvoiceColumnsPageState extends State<InvoiceColumnsPage> {
                       tooltip: 'Set formula for Amount calculation',
                       onPressed: () => _showFormulaDialog(context),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.lock, color: Colors.grey),
+                      tooltip: 'Cannot delete amount',
+                      onPressed: () => {},
+                    )
                   ] else
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),

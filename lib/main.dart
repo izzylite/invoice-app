@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:invoice_app/pages/splash_screen_page.dart';
-import 'pages/dashboard_page.dart' as dashboard;
 
 void main() {
   // This preserves the splash screen until the app is fully loaded

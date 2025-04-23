@@ -56,6 +56,9 @@ dependencies:
 
   # For splash screen
   flutter_native_splash: ^2.3.10
+  pdf: ^3.11.3
+  flutter_pdfview: ^1.4.0+1
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:
