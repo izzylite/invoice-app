@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:elakkaitrack/services/column_options_service.dart';
+import 'package:elakkaitrack/services/customer_options_service.dart';
 import 'package:elakkaitrack/utils/currency.dart';
 import 'package:elakkaitrack/utils/column_utils.dart';
+import 'package:elakkaitrack/pages/customer_options_page.dart';
 import '../models/invoice.dart';
 import '../models/invoice_item.dart';
 import '../models/column_definition.dart';
@@ -63,6 +65,9 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   // Store column options for dropdown fields
   Map<String, List<String>> _columnOptions = {};
 
+  // Store customer name options
+  List<String> _customerOptions = [];
+
   List<InvoiceItem> _items = [];
 
   List<String> getNonTextColume() {
@@ -87,14 +92,27 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   @override
   void initState() {
     super.initState();
+    // Load column options
     getSavedColumeOptions(_columns).then((value) {
       setState(() {
         _columnOptions = value;
       });
     });
+
+    // Load customer options
+    _loadCustomerOptions();
+
     if (widget.invoice != null) {
       _loadInvoiceData(widget.invoice!);
     }
+  }
+
+  // Load customer options from shared preferences
+  Future<void> _loadCustomerOptions() async {
+    final options = await CustomerOptionsService.getCustomerOptions();
+    setState(() {
+      _customerOptions = options;
+    });
   }
 
   Future<Map<String, List<String>>> getSavedColumeOptions(
@@ -149,6 +167,34 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     setState(() {
       _freightCost = double.tryParse(value) ?? 0.0;
     });
+  }
+
+  // Show dialog to manage customer name options
+  Future<void> _showCustomerOptionsDialog(BuildContext context) async {
+    final options = await Navigator.push<List<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CustomerOptionsPage(
+          initialOptions: _customerOptions,
+        ),
+      ),
+    );
+
+    if (options != null) {
+      setState(() {
+        _customerOptions = options;
+
+        // If the current customer name is not in the options, clear it
+        if (_invoiceTitleController.text.isNotEmpty &&
+            !_customerOptions.contains(_invoiceTitleController.text)) {
+          // Add the current customer name to options if it's not empty
+          if (_invoiceTitleController.text.trim().isNotEmpty) {
+            _customerOptions.add(_invoiceTitleController.text.trim());
+            CustomerOptionsService.saveCustomerOptions(_customerOptions);
+          }
+        }
+      });
+    }
   }
 
   // Method to show date picker
@@ -210,10 +256,19 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       contactNum = int.parse(contactText);
     }
 
+    // Get customer name
+    String customerName = _invoiceTitleController.text.trim();
+
+    // Save customer name to options if not already present
+    if (customerName.isNotEmpty && !_customerOptions.contains(customerName)) {
+      _customerOptions.add(customerName);
+      CustomerOptionsService.saveCustomerOptions(_customerOptions);
+    }
+
     return Invoice(
       id: widget.invoice?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _invoiceTitleController.text.trim(),
+      title: customerName,
       buildyNumber: _buildyController.text.trim(),
       createdAt: widget.invoice?.createdAt ?? DateTime.now(),
       invoiceDate: _selectedDate,
@@ -572,20 +627,64 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    TextFormField(
-                      controller: _invoiceTitleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Customer Name',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter customer name',
-                        prefixIcon: Icon(Icons.person),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _customerOptions.isEmpty
+                              ? TextFormField(
+                                  controller: _invoiceTitleController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Customer Name',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 16),
+                                    hintText: 'Enter customer name',
+                                    prefixIcon: Icon(Icons.person),
+                                  ),
+                                  textCapitalization: TextCapitalization.words,
+                                  textInputAction: TextInputAction.next,
+                                  onEditingComplete: () =>
+                                      FocusScope.of(context).nextFocus(),
+                                )
+                              : DropdownButtonFormField<String>(
+                                  value: _invoiceTitleController.text.isNotEmpty
+                                      ? (_customerOptions.contains(
+                                              _invoiceTitleController.text)
+                                          ? _invoiceTitleController.text
+                                          : null)
+                                      : null,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Customer Name',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 16),
+                                    prefixIcon: Icon(Icons.person),
+                                  ),
+                                  hint: const Text('Select customer'),
+                                  items: _customerOptions.map((option) {
+                                    return DropdownMenuItem<String>(
+                                      value: option,
+                                      child: Text(option),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _invoiceTitleController.text = value;
+                                      });
+                                    }
+                                  },
+                                  isExpanded: true,
+                                ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle),
+                          tooltip: 'Add customer options',
+                          color: Theme.of(context).colorScheme.primary,
+                          onPressed: () => _showCustomerOptionsDialog(context),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
