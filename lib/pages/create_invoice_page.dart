@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:elakkaitrack/services/column_options_service.dart';
+import 'package:elakkaitrack/services/customer_options_service.dart';
+import 'package:elakkaitrack/services/company_info_service.dart';
 import 'package:elakkaitrack/utils/currency.dart';
 import 'package:elakkaitrack/utils/column_utils.dart';
+import 'package:elakkaitrack/pages/customer_options_page.dart';
 import '../models/invoice.dart';
 import '../models/invoice_item.dart';
 import '../models/column_definition.dart';
@@ -63,6 +66,14 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   // Store column options for dropdown fields
   Map<String, List<String>> _columnOptions = {};
 
+  // Store customer name options
+  List<String> _customerOptions = [];
+
+  // Company info fields state
+  bool _companyNameLocked = false;
+  bool _companySubtitleLocked = false;
+  bool _contactNumberLocked = false;
+
   List<InvoiceItem> _items = [];
 
   List<String> getNonTextColume() {
@@ -87,13 +98,68 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   @override
   void initState() {
     super.initState();
+    // Load column options
     getSavedColumeOptions(_columns).then((value) {
       setState(() {
         _columnOptions = value;
       });
     });
+
+    // Load customer options
+    _loadCustomerOptions();
+
+    // Load company info
+    _loadCompanyInfo();
+
     if (widget.invoice != null) {
       _loadInvoiceData(widget.invoice!);
+    } else {
+      // For new invoices, apply saved company info
+      _applyCompanyInfo();
+    }
+  }
+
+  // Load customer options from shared preferences
+  Future<void> _loadCustomerOptions() async {
+    final options = await CustomerOptionsService.getCustomerOptions();
+    setState(() {
+      _customerOptions = options;
+    });
+  }
+
+  // Load company info from shared preferences
+  Future<void> _loadCompanyInfo() async {
+    final companyInfo = await CompanyInfoService.getCompanyInfo();
+    if (companyInfo != null) {
+      setState(() {
+        // Only lock fields if we have saved company info
+        _companyNameLocked = companyInfo.name.isNotEmpty;
+        _companySubtitleLocked = companyInfo.subtitle.isNotEmpty;
+        _contactNumberLocked = companyInfo.contactNumber.isNotEmpty;
+      });
+    }
+  }
+
+  // Apply saved company info to fields
+  Future<void> _applyCompanyInfo() async {
+    final companyInfo = await CompanyInfoService.getCompanyInfo();
+    if (companyInfo != null && mounted) {
+      setState(() {
+        if (companyInfo.name.isNotEmpty) {
+          _companyNameController.text = companyInfo.name;
+          _companyNameLocked = true;
+        }
+
+        if (companyInfo.subtitle.isNotEmpty) {
+          _companySubtitleController.text = companyInfo.subtitle;
+          _companySubtitleLocked = true;
+        }
+
+        if (companyInfo.contactNumber.isNotEmpty) {
+          _contactNumberController.text = companyInfo.contactNumber;
+          _contactNumberLocked = true;
+        }
+      });
     }
   }
 
@@ -149,6 +215,34 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     setState(() {
       _freightCost = double.tryParse(value) ?? 0.0;
     });
+  }
+
+  // Show dialog to manage customer name options
+  Future<void> _showCustomerOptionsDialog(BuildContext context) async {
+    final options = await Navigator.push<List<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CustomerOptionsPage(
+          initialOptions: _customerOptions,
+        ),
+      ),
+    );
+
+    if (options != null) {
+      setState(() {
+        _customerOptions = options;
+
+        // If the current customer name is not in the options, clear it
+        if (_invoiceTitleController.text.isNotEmpty &&
+            !_customerOptions.contains(_invoiceTitleController.text)) {
+          // Add the current customer name to options if it's not empty
+          if (_invoiceTitleController.text.trim().isNotEmpty) {
+            _customerOptions.add(_invoiceTitleController.text.trim());
+            CustomerOptionsService.saveCustomerOptions(_customerOptions);
+          }
+        }
+      });
+    }
   }
 
   // Method to show date picker
@@ -210,10 +304,35 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       contactNum = int.parse(contactText);
     }
 
+    // Get customer name
+    String customerName = _invoiceTitleController.text.trim();
+
+    // Save customer name to options if not already present
+    if (customerName.isNotEmpty && !_customerOptions.contains(customerName)) {
+      _customerOptions.add(customerName);
+      CustomerOptionsService.saveCustomerOptions(_customerOptions);
+    }
+
+    // Save company info to preferences
+    final companyName = _companyNameController.text.trim();
+    final companySubtitle = _companySubtitleController.text.trim();
+    final contactNumber = _contactNumberController.text.trim();
+
+    if (companyName.isNotEmpty ||
+        companySubtitle.isNotEmpty ||
+        contactNumber.isNotEmpty) {
+      final companyInfo = CompanyInfo(
+        name: companyName,
+        subtitle: companySubtitle,
+        contactNumber: contactNumber,
+      );
+      CompanyInfoService.saveCompanyInfo(companyInfo);
+    }
+
     return Invoice(
       id: widget.invoice?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _invoiceTitleController.text.trim(),
+      title: customerName,
       buildyNumber: _buildyController.text.trim(),
       createdAt: widget.invoice?.createdAt ?? DateTime.now(),
       invoiceDate: _selectedDate,
@@ -486,69 +605,130 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    TextFormField(
-                      controller: _companyNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Company Name',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter your company name',
-                        prefixIcon: Icon(Icons.business),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _companyNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Company Name',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              hintText: 'Enter your company name',
+                              prefixIcon: Icon(Icons.business),
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            onEditingComplete: () =>
+                                FocusScope.of(context).nextFocus(),
+                            enabled: !_companyNameLocked,
+                          ),
+                        ),
+                        if (_companyNameLocked) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit company name',
+                            color: Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              setState(() {
+                                _companyNameLocked = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _companySubtitleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Company Subtitle',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter company subtitle or tagline',
-                        prefixIcon: Icon(Icons.short_text),
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _companySubtitleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Company Subtitle',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              hintText: 'Enter company subtitle or tagline',
+                              prefixIcon: Icon(Icons.short_text),
+                            ),
+                            textCapitalization: TextCapitalization.sentences,
+                            textInputAction: TextInputAction.next,
+                            onEditingComplete: () =>
+                                FocusScope.of(context).nextFocus(),
+                            enabled: !_companySubtitleLocked,
+                          ),
+                        ),
+                        if (_companySubtitleLocked) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit company subtitle',
+                            color: Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              setState(() {
+                                _companySubtitleLocked = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _contactNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Number',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter 10-digit contact number',
-                        prefixText: '+91',
-                        prefixIcon: Icon(Icons.numbers_outlined),
-                        helperText: 'Enter a 10-digit mobile number',
-                      ),
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      maxLength: 10,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
-                      // Add inline validation
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return null; // Contact number is optional
-                        }
-                        if (int.tryParse(value) == null) {
-                          return 'Enter digits only';
-                        }
-                        if (value.length != 10) {
-                          return 'Must be 10 digits';
-                        }
-                        return null;
-                      },
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _contactNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Contact Number',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              hintText: 'Enter 10-digit contact number',
+                              prefixText: '+91',
+                              prefixIcon: Icon(Icons.numbers_outlined),
+                              helperText: 'Enter a 10-digit mobile number',
+                            ),
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            maxLength: 10,
+                            onEditingComplete: () =>
+                                FocusScope.of(context).nextFocus(),
+                            // Add inline validation
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return null; // Contact number is optional
+                              }
+                              if (int.tryParse(value) == null) {
+                                return 'Enter digits only';
+                              }
+                              if (value.length != 10) {
+                                return 'Must be 10 digits';
+                              }
+                              return null;
+                            },
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            enabled: !_contactNumberLocked,
+                          ),
+                        ),
+                        if (_contactNumberLocked) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit contact number',
+                            color: Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              setState(() {
+                                _contactNumberLocked = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -572,20 +752,64 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    TextFormField(
-                      controller: _invoiceTitleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Customer Name',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        hintText: 'Enter customer name',
-                        prefixIcon: Icon(Icons.person),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () =>
-                          FocusScope.of(context).nextFocus(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _customerOptions.isEmpty
+                              ? TextFormField(
+                                  controller: _invoiceTitleController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Customer Name',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 16),
+                                    hintText: 'Enter customer name',
+                                    prefixIcon: Icon(Icons.person),
+                                  ),
+                                  textCapitalization: TextCapitalization.words,
+                                  textInputAction: TextInputAction.next,
+                                  onEditingComplete: () =>
+                                      FocusScope.of(context).nextFocus(),
+                                )
+                              : DropdownButtonFormField<String>(
+                                  value: _invoiceTitleController.text.isNotEmpty
+                                      ? (_customerOptions.contains(
+                                              _invoiceTitleController.text)
+                                          ? _invoiceTitleController.text
+                                          : null)
+                                      : null,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Customer Name',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 16),
+                                    prefixIcon: Icon(Icons.person),
+                                  ),
+                                  hint: const Text('Select customer'),
+                                  items: _customerOptions.map((option) {
+                                    return DropdownMenuItem<String>(
+                                      value: option,
+                                      child: Text(option),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _invoiceTitleController.text = value;
+                                      });
+                                    }
+                                  },
+                                  isExpanded: true,
+                                ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle),
+                          tooltip: 'Add customer options',
+                          color: Theme.of(context).colorScheme.primary,
+                          onPressed: () => _showCustomerOptionsDialog(context),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

@@ -1,5 +1,7 @@
 import '../models/column_definition.dart';
 
+/// Utility functions for column operations
+
 List<String> getFilteredColumns(
     List<String> columns, List<String> filterColumns) {
   return columns.where((col) => filterColumns.contains(col)).toList();
