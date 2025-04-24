@@ -10,7 +10,6 @@ String operationTypeToString(OperationType type) {
   return type.toString().split('.').last;
 }
 
-// Helper method to convert string to operation type
 OperationType operationTypeFromString(String value) {
   return OperationType.values.firstWhere(
     (type) => operationTypeToString(type) == value,

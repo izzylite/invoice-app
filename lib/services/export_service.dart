@@ -5,7 +5,6 @@ import 'package:elakkaitrack/utils/column_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/invoice.dart';
-import '../pages/invoice_rows_page.dart' show Currency;
 
 class ExportService {
   static String _formatDate(DateTime date) {

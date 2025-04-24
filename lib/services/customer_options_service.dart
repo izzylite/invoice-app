@@ -22,11 +22,11 @@ class CustomerOptionsService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? jsonString = prefs.getString(_prefKey);
-      
+
       if (jsonString == null || jsonString.isEmpty) {
         return [];
       }
-      
+
       final List<dynamic> jsonList = jsonDecode(jsonString);
       return List<String>.from(jsonList);
     } catch (e) {
@@ -35,7 +35,6 @@ class CustomerOptionsService {
     }
   }
 
-  /// Add a new customer option
   static Future<bool> addCustomerOption(String option) async {
     try {
       final List<String> options = await getCustomerOptions();
@@ -43,14 +42,13 @@ class CustomerOptionsService {
         options.add(option);
         return await saveCustomerOptions(options);
       }
-      return true; // Option already exists
+      return true;
     } catch (e) {
       print('Error adding customer option: $e');
       return false;
     }
   }
 
-  /// Remove a customer option
   static Future<bool> removeCustomerOption(String option) async {
     try {
       final List<String> options = await getCustomerOptions();
@@ -62,7 +60,6 @@ class CustomerOptionsService {
     }
   }
 
-  /// Clear all customer options
   static Future<bool> clearAllOptions() async {
     try {
       final prefs = await SharedPreferences.getInstance();

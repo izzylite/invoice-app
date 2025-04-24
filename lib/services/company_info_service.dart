@@ -30,7 +30,6 @@ class CompanyInfo {
   }
 }
 
-/// Service to manage company information persistence
 class CompanyInfoService {
   static const String _prefKey = 'company_info';
 
@@ -46,16 +45,15 @@ class CompanyInfoService {
     }
   }
 
-  /// Load company info from shared preferences
   static Future<CompanyInfo?> getCompanyInfo() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? jsonString = prefs.getString(_prefKey);
-      
+
       if (jsonString == null || jsonString.isEmpty) {
         return null;
       }
-      
+
       final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
       return CompanyInfo.fromJson(jsonMap);
     } catch (e) {
@@ -64,7 +62,6 @@ class CompanyInfoService {
     }
   }
 
-  /// Clear saved company info
   static Future<bool> clearCompanyInfo() async {
     try {
       final prefs = await SharedPreferences.getInstance();
