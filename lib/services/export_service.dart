@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:elakkaitrack/utils/currency.dart';
 import 'package:elakkaitrack/utils/column_utils.dart';
+import 'package:elakkaitrack/utils/export_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/invoice.dart';
-import '../pages/invoice_rows_page.dart' show Currency;
 
 class ExportService {
   static String _formatDate(DateTime date) {
@@ -129,25 +129,40 @@ class ExportService {
       // Convert to CSV string
       String csv = const ListToCsvConverter().convert(csvData);
 
-      final directory = await getApplicationDocumentsDirectory();
+      try {
+        var directory = await getDownloadsDirectory();
+        directory ??= await getApplicationDocumentsDirectory();
 
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
+        // Using directory for CSV
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+
+        String filename = generateFilename(directory.path, invoice, "csv");
+
+        File file = File(filename);
+        int count = 1;
+        while (await file.exists()) {
+          filename =
+              generateFilename(directory.path, invoice, "csv", count: count);
+          file = File(filename);
+          count++;
+        }
+
+        // Create parent directories if they don't exist
+        if (!await file.parent.exists()) {
+          await file.parent.create(recursive: true);
+        }
+
+        await file.writeAsString(csv);
+
+        return file.path;
+      } catch (dirError) {
+        // Error with directory or file operations for CSV
+        rethrow; // Re-throw to be caught by outer catch
       }
-
-      String sanitizedTitle = invoice.title.isEmpty
-          ? 'Invoice'
-          : invoice.title.replaceAll(RegExp(r'[^\w\s.-]'), '_');
-      String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String filePath =
-          '${directory.path}/invoice_${sanitizedTitle}_$timestamp.csv';
-
-      final File file = File(filePath);
-      await file.writeAsString(csv);
-
-      return filePath;
-    } catch (ignore) {
-      // Handle error
+    } catch (e) {
+      // Error generating CSV
       return null;
     }
   }
@@ -161,8 +176,8 @@ class ExportService {
         subject: 'Invoice Export',
         text: 'Here is your exported invoice.',
       );
-    } catch (ignore) {
-      // Handle error
+    } catch (e) {
+      // Error sharing CSV
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:elakkaitrack/utils/export_utils.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -7,7 +8,6 @@ import 'package:printing/printing.dart';
 import '../models/invoice.dart';
 import '../utils/currency.dart';
 import '../utils/column_utils.dart';
-import 'package:flutter/foundation.dart';
 
 class PdfExportService {
   static Future<String?> exportInvoiceToPdf(Invoice invoice) async {
@@ -209,25 +209,40 @@ class PdfExportService {
       );
 
       // Save the PDF file
-      final directory = await getApplicationDocumentsDirectory();
+      try {
+        var directory = await getDownloadsDirectory();
+        directory ??= await getApplicationDocumentsDirectory();
 
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
+        // Using directory for PDF
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+
+        String filename = generateFilename(directory.path, invoice, "pdf");
+
+        File file = File(filename);
+        int count = 1;
+        while (await file.exists()) {
+          filename =
+              generateFilename(directory.path, invoice, "pdf", count: count);
+          file = File(filename);
+          count++;
+        }
+
+        // Create parent directories if they don't exist
+        if (!await file.parent.exists()) {
+          await file.parent.create(recursive: true);
+        }
+
+        await file.writeAsBytes(await pdf.save());
+
+        return file.path;
+      } catch (dirError) {
+        // Error with directory or file operations for PDF
+        rethrow; // Re-throw to be caught by outer catch
       }
-
-      String sanitizedTitle = invoice.title.isEmpty
-          ? 'Invoice'
-          : invoice.title.replaceAll(RegExp(r'[^\w\s.-]'), '_');
-      String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String filePath =
-          '${directory.path}/invoice_${sanitizedTitle}_$timestamp.pdf';
-
-      final File file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
-
-      return filePath;
     } catch (e) {
-      print('Error generating PDF: $e');
+      // Error generating PDF
       return null;
     }
   }
@@ -313,7 +328,7 @@ class PdfExportService {
         text: 'Here is your exported invoice as PDF.',
       );
     } catch (e) {
-      print('Error sharing PDF: $e');
+      // Error sharing PDF
     }
   }
 
@@ -327,7 +342,7 @@ class PdfExportService {
         name: 'Invoice',
       );
     } catch (e) {
-      print('Error printing PDF: $e');
+      // Error printing PDF
     }
   }
 }
